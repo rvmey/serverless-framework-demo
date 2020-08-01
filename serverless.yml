@@ -13,30 +13,24 @@
 
 service: meetup-demo
 
+custom:
+  config: ${file(config/${opt:stage}.yml)}
+
 provider:
   name: aws
   runtime: python3.8
   stage: dev
   region: us-east-1
+  accountId: ${self:custom.config.accountId}
   environment:
-    RUSS_VAR: value1
     STAGE: ${self:provider.stage}
-
-# you can add statements to the Lambda function's IAM Role here
+    SLS_SERVICE: ${self:service}
   iamRoleStatements:
     - Effect: "Allow"
       Action:
-        - "s3:ListBucket"
-      Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
-    - Effect: "Allow"
-      Action:
-        - "s3:PutObject"
-      Resource:
-        Fn::Join:
-          - ""
-          - - "arn:aws:s3:::"
-            - "Ref" : "ServerlessDeploymentBucket"
-            - "/*"
+        - "states:StartExecution"
+      Resource: 
+        - "arn:aws:states:${self:provider.region}:${self:provider.accountId}:stateMachine:${self:service}-${self:provider.stage}"
 
 layers:
   pythonpackages:
@@ -52,20 +46,44 @@ package:
   individually: true
 
 functions:
-  hello:
-    name: hello_${self:provider.stage}
-    handler: lambda_functions/echo/handler.hello
+  call_stepfunction:
+    name: call_stepfunction_${self:provider.stage}
+    handler: lambda_functions/call_stepfunction/handler.handler
     package:
       exclude:
         - ./**
       include:
-        - lambda_functions/echo/**
+        - lambda_functions/call_stepfunction/**
     layers:
       - { Ref: PythonpackagesLambdaLayer }
     events:
       - http:
-          path: hello
+          path: demo
           method: get
+
+  go:
+    name: go_${self:provider.stage}
+    handler: lambda_functions/go/handler.handler
+    package:
+      exclude:
+        - ./**
+      include:
+        - lambda_functions/go/**
+    layers:
+      - { Ref: PythonpackagesLambdaLayer }
+
+stepFunctions:
+  stateMachines:
+    meetup-demo:
+      name: ${self:service}-${self:provider.stage}
+      # notifications:
+      #   FAILED:
+      #     - lambda: arn:aws:lambda:....
+      #   TIMED_OUT:
+      #     - lambda: arn:aws:lambda:....
+      definition:
+        ${file(stepfunctions.asl.json)}
+
 
 # you can add CloudFormation resource templates here
 #resources:
@@ -78,3 +96,6 @@ functions:
 #     NewOutput:
 #       Description: "Description for the output"
 #       Value: "Some output value"
+
+plugins:
+  - serverless-step-functions

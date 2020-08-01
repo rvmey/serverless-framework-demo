@@ -1,0 +1,60 @@
+{
+    "StartAt": "Determine Action",
+    "States": {
+      "Determine Action": {
+        "Comment": "Determine what to do depending on the action value in the payload.",
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$.action",
+            "StringEquals": "stop",
+            "Next": "Stop"
+          },
+          {
+            "Variable": "$.action",
+            "StringEquals": "go",
+            "Next": "Go"
+          }
+        ],
+        "Default": "Error"
+      },
+      "Error": {
+        "Type": "Fail"
+      },
+      "Stop": {
+        "Type": "Pass",
+        "End": true
+      },
+      "Go": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::lambda:invoke",
+        "Parameters": {
+          "FunctionName": "arn:aws:lambda:${self:provider.region}:${self:provider.accountId}:function:go_${self:provider.stage}",
+          "Payload": {
+            "Input.$": "$"
+          }
+        },
+        "OutputPath": "$.Payload",
+        "Next": "RedOrBlue"
+      },
+      "RedOrBlue": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$.color",
+            "StringEquals": "red",
+            "Next": "Red"
+          }
+        ],
+        "Default": "Blue"
+      },
+      "Red": {
+        "Type": "Pass",
+        "End": true
+      },
+      "Blue": {
+        "Type": "Pass",
+        "End": true
+      }
+    }
+  }
