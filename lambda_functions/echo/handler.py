@@ -2,8 +2,11 @@ import json, os, boto3
 
 def hello(event, context):
     if os.environ['STAGE'] == 'dev':
+        print('event:')
         print(json.dumps(event))
-    print(json.dumps(event['queryStringParameters']['russ']))
+
+    if event.get('queryStringParameters'):
+        print(json.dumps(event['queryStringParameters']))
 
     body = {
         "message": "Go Serverless v1.0! Your function executed successfully!",
